@@ -3,8 +3,7 @@
 
 
 #include <stdlib.h>
-#include "main.h"
-#include "stm32f4xx_hal.h"
+#include "stm32f1xx_hal.h"
 
 /*!
 * @brief Статусы датчика
@@ -19,7 +18,9 @@ typedef enum {
 	AHT21_NOT_INITIALIZED,
 	AHT21_TX_ERROR,
 	AHT21_RX_ERROR,
-	AHT21_UNKNOWN_COMMAND
+	AHT21_UNKNOWN_COMMAND,
+	AHT21_BUSY,
+	AHT21_CRC_ERROR
 } AHT21_STATUS;
 
 /*!
@@ -29,10 +30,10 @@ typedef enum {
 
 /*! 
 * @brief Адрес датчиков AHT
-* @details Адрес датчика AHT21, указанный в документации.
+* @details Адрес датчика AHT21_, указанный в документации.
 * сделан сдвиг, поскольку датчик работает с 7-битным значением
 */
-#define AHT_21_ADDR 0x38 << 1;
+#define AHT21_ADDR 0x38 << 1
 
 /*!
 * @brief Структура данных, представляющая датчик AHT
@@ -60,7 +61,7 @@ typedef struct{
 	* @details humidity хранит последние показания влажности, 
 	* полученные от датчика
 	*/
-	uint32_t humidity;
+	float humidity;
 	
 	/*! 
 	* @brief Температура
@@ -68,7 +69,7 @@ typedef struct{
 	* @details temperature хранит последние показания температуры, 
 	* полученные от датчика
 	*/
-	int32_t temperature;
+	float temperature;
 	
 	/*! 
 	* @brief Порт датчика
@@ -91,7 +92,7 @@ typedef struct{
 	* @details lastError хранит последний статус датчика
 	*/
 	AHT21_STATUS lastError;
-} AHT;
+} AHT21;
 
 /*!
 * @brief Инициализация датчика
@@ -102,7 +103,7 @@ typedef struct{
 * 
 * @return Указатель на созданную структуру, описывающую датчик 
 */
-AHT* AHT21Init(I2C_HandleTypeDef *port, uint8_t address);
+AHT21* AHT21_Init(I2C_HandleTypeDef *port, uint8_t address);
 
 /*!
 * @brief Выполнить измерения
@@ -111,7 +112,15 @@ AHT* AHT21Init(I2C_HandleTypeDef *port, uint8_t address);
 * @param[in] sensor указатель на структуру, с которой мы работаем
 * @return Возвращает результат выполнения функции
 */
-AHT21_STATUS readInfo(AHT *sensor);
+AHT21_STATUS AHT21_ReadInfo(AHT21 *sensor);
+
+/*!
+* @brief Обрабатывает температуру и влажность в буфере.
+* @details Обрабатывает данные в буфере. Вызывается 
+* после неблокирующего получения данных для из обработки.
+* @param[in] sensor указатель на структуру, с которой мы работаем
+*/
+void AHT21_ReadInfoFromBuffer(AHT21 *sensor);
 
 /*!
 * @brief Деструктор структуры
@@ -119,7 +128,15 @@ AHT21_STATUS readInfo(AHT *sensor);
 *
 * @param[in] sensor указатель на структуру, подлежащую удалению
 */
-void AHT21Deleter(AHT *sensor);
+void AHT21_Deleter(AHT21 *sensor);
+
+/*!
+* @brief Вычислить CRC8
+* @details Вычисляет CRC8 ответа датчика и возвращает вычисленное значение
+* @param[in] sensor указатель на структуру, с которой мы работаем
+* @return Возвращает результат вычисления CRC8
+*/
+uint8_t AHT21_CalcCRC8(AHT21 *sensor);
 /////////////////////////////NON-BLOCKING MODE WITH INTERRUPTIONS/////////////////////////////
 /*!
 * @brief Отправить команду начать измерения
@@ -128,7 +145,7 @@ void AHT21Deleter(AHT *sensor);
 * @param[in] sensor указатель на структуру, с которой мы работаем
 * @return Возвращает статус датчика после вызова функции
 */
-AHT21_STATUS sendInfoRequestIT(AHT *sensor);
+AHT21_STATUS AHT21_SendInfoRequest_IT(AHT21 *sensor);
 
 /*!
 * @brief Запросить результаты измерения
@@ -137,7 +154,7 @@ AHT21_STATUS sendInfoRequestIT(AHT *sensor);
 * @param[in] sensor указатель на структуру, с которой мы работаем
 * @return Возвращает статус датчика после вызова функции
 */
-AHT21_STATUS parseInfoRequestIT(AHT *sensor);
+AHT21_STATUS AHT21_ParseInfoRequest_IT(AHT21 *sensor);
 /////////////////////////////NON-BLOCKING MODE WITH DMA/////////////////////////////
 /*!
 * @brief Отправить команду начать измерения
@@ -146,7 +163,7 @@ AHT21_STATUS parseInfoRequestIT(AHT *sensor);
 * @param[in] sensor указатель на структуру, с которой мы работаем
 * @return Возвращает статус датчика после вызова функции
 */
-AHT21_STATUS sendInfoRequestDMA(AHT *sensor);
+AHT21_STATUS AHT21_SendInfoRequest_DMA(AHT21 *sensor);
 
 /*!
 * @brief Запросить результаты измерения
@@ -155,6 +172,6 @@ AHT21_STATUS sendInfoRequestDMA(AHT *sensor);
 * @param[in] sensor указатель на структуру, с которой мы работаем
 * @return Возвращает статус датчика после вызова функции
 */
-AHT21_STATUS parseInfoRequestDMA(AHT *sensor);
+AHT21_STATUS AHT21_ParseInfoRequest_DMA(AHT21 *sensor);
 
 #endif /* INC_AHT21_H_ */
